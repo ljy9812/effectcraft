@@ -326,6 +326,12 @@ static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMo
 /// JetBrains Mono do not cover. 0.37's default font set no longer includes the old emoji
 /// fonts, and named families (`medium`, `semibold`) never received egui's default fallbacks.
 static NOTO_SYMBOLS2: &[u8] = include_bytes!("../../../assets/fonts/NotoSansSymbols2-Regular.ttf");
+/// The Simplified Chinese face of the interface (`zh-hans`): the web build has no system fonts,
+/// so unlike the desktop it embeds the face itself — WenQuanYi Micro Hei, Apache-2.0, 4.4 MiB,
+/// craft-fonts' Hans face, the one the craft-fonts apps embed on wasm too — and appends it to
+/// every family. Without it the zh interface draws tofu.
+#[cfg(target_arch = "wasm32")]
+static WQY_MICROHEI: &[u8] = include_bytes!("../../../assets/fonts/wqy-microhei.ttf");
 
 /// Install fonts (Inter, Inter Medium/SemiBold, JetBrains Mono) and egui visuals. `language` is the
 /// resolved interface language from [`crate::i18n::language`] (`en`, `ja`, `zh-hans` or `zh-hant`),
@@ -341,6 +347,10 @@ pub fn install(ctx: &egui::Context, t: &Tokens, language: &str) {
     fonts.font_data.insert("inter-semibold".into(), Arc::new(FontData::from_static(INTER_SEMIBOLD)));
     fonts.font_data.insert("jbmono".into(), Arc::new(FontData::from_static(JETBRAINS_MONO)));
     fonts.font_data.insert("noto-symbols2".into(), Arc::new(FontData::from_static(NOTO_SYMBOLS2)));
+    // Web-only Hans face (see `WQY_MICROHEI`); the desktop's system fallback machinery
+    // (`install_script_fallbacks`) owns CJK.
+    #[cfg(target_arch = "wasm32")]
+    fonts.font_data.insert("wqy-microhei".into(), Arc::new(FontData::from_static(WQY_MICROHEI)));
     fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "inter".into());
     fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "jbmono".into());
     fonts.families.insert(FontFamily::Name("semibold".into()), vec!["inter-semibold".into(), "inter".into()]);
@@ -354,6 +364,10 @@ pub fn install(ctx: &egui::Context, t: &Tokens, language: &str) {
             stack.push("jbmono".into());
         }
         stack.push("noto-symbols2".into());
+        // Web-only Hans fallback (see `WQY_MICROHEI`): every family, so CJK text draws wherever
+        // it lands. The desktop resolves CJK from system fonts instead.
+        #[cfg(target_arch = "wasm32")]
+        stack.push("wqy-microhei".into());
     }
     install_script_fallbacks(&mut fonts, language);
     ctx.set_fonts(fonts);
